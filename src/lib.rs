@@ -1,46 +1,27 @@
 mod hittable;
 mod ray;
+mod sphere;
 mod vec3;
 
+use sphere::Sphere;
+use std::f64::INFINITY;
+
+use hittable::{HitRecord, Hittable, HittableList};
 use ray::Ray;
 use vec3::{Color, Point3, Vec3};
 
-// const ASPECT_RATIO: i32 = 16.0 / 9.0;
-// const IMAGE_WIDTH: i32 = 400;
-//
-// const IMAGE_HEIGHT: i32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as i32;
-// const VIEWPORT_HEIGHT: f64 = 2.0;
-// const VIEWPORT_WIDTH: f64 =
-//     ASPECT_RATIO * (IMAGE_WIDTH as f64 / IMAGE_HEIGHT as f64);
+pub fn ray_color<H: Hittable>(ray: &Ray, world: &H) -> Color {
+    let mut rec = HitRecord::new();
 
-pub fn ray_color(ray: &Ray) -> Color {
-    let t = hit_sphere(Point3::from(0.0, 0.0, -1.0), 0.5, ray);
-    if t > 0.0 {
-        let n = vec3::unit_vector(ray.at(t) - Vec3::from(0.0, 0.0, -1.0));
-        return 0.5 * Color::from(n.x() + 1.0, n.y() + 1.0, n.z() + 1.0);
+    if world.hit(ray, hittable::Interval::from(0.0, INFINITY), &mut rec) {
+        return 0.5 * (rec.normal + Color::from(1.0, 1.0, 1.0));
     }
-
     let unit_direction = vec3::unit_vector(ray.direction());
     let a = 0.5 * (unit_direction.y() + 1.0);
     return (1.0 - a) * Color::from(1.0, 1.0, 1.0)
         + a * Color::from(0.5, 0.7, 1.0);
 }
 
-fn hit_sphere(center: Point3, radius: f64, ray: &Ray) -> f64 {
-    let oc = ray.origin() - center;
-    let a = ray.direction().length_squared();
-
-    let half_b = vec3::dot(&oc, &ray.direction());
-    let c = oc.length_squared() - radius * radius;
-
-    let discriminant = half_b * half_b - a * c;
-
-    if discriminant < 0.0 {
-        return -1.0;
-    } else {
-        return (-half_b - discriminant.sqrt()) / a;
-    }
-}
 pub fn run() {
     // Image
 
@@ -48,9 +29,17 @@ pub fn run() {
 
     let image_width = 400;
 
+    // Calculate the image height, and ensure that it's at least 1
     let image_height = (image_width as f64 / aspect_ratio) as i32;
-
     let image_height = if image_height < 1 { 1 } else { image_height };
+
+    //World
+    let mut world: HittableList = HittableList::new();
+    world.add(Box::new(Sphere::from(Point3::from(0.0, 0.0, -1.0), 0.5)));
+    world.add(Box::new(Sphere::from(
+        Point3::from(0.0, -100.5, -1.0),
+        100.0,
+    )));
 
     // Camera
     let focal_length = 1.0;
@@ -90,7 +79,7 @@ pub fn run() {
             let ray_direction = pixel_center - camera_center;
             let ray = Ray::from(camera_center, ray_direction);
 
-            let pixel_color = ray_color(&ray);
+            let pixel_color = ray_color(&ray, &world);
             vec3::write_color(std::io::stdout(), &pixel_color);
         }
     }
