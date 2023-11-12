@@ -3,8 +3,10 @@ mod hittable;
 mod ray;
 mod sphere;
 mod vec3;
+mod utils;
 
 use camera::Camera;
+use rand::prelude::*;
 use sphere::Sphere;
 
 use hittable::HittableList;
@@ -22,5 +24,6 @@ pub fn run() {
     //Camera
     let mut cam = Camera::new();
     cam.aspect_ratio = 16.0 / 9.0;
+    cam.samples_per_pixel = 100;
     cam.render(&world);
 }

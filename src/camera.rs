@@ -9,6 +9,8 @@ use std::f64::INFINITY;
 pub struct Camera {
     pub aspect_ratio: f64,
     pub image_width: i32,
+    pub samples_per_pixel: i32,
+
     image_height: i32,
     pixel00_loc: Point3,
     pixel_delta_u: Vec3,
@@ -21,6 +23,7 @@ impl Camera {
         Self {
             aspect_ratio: 16.0 / 9.0,
             image_width: 400,
+            samples_per_pixel: 100,
             image_height: 225,
             pixel00_loc: Point3::new(),
             pixel_delta_u: Vec3::new(),
@@ -71,25 +74,47 @@ impl Camera {
         for j in 0..self.image_height {
             log::info!(r"Scanlines remaining: {} ", self.image_height - j);
             for i in 0..self.image_width {
-                let pixel_center = self.pixel00_loc
-                    + (i * self.pixel_delta_u)
-                    + (j * self.pixel_delta_v);
-                let ray_direction = pixel_center - self.center;
-                let ray = Ray::from(self.center, ray_direction);
-
-                let pixel_color = self.ray_color(&ray, &world);
-                vec3::write_color(std::io::stdout(), &pixel_color);
+                let mut pixel_color = Color::new();
+                for _ in 0..self.samples_per_pixel {
+                    let ray = self.get_ray(i, j);
+                    pixel_color += self.ray_color(&ray, &world);
+                }
+                vec3::write_color(
+                    std::io::stdout(),
+                    &pixel_color,
+                    self.samples_per_pixel,
+                );
             }
         }
 
         log::info!("Done");
     }
 
+    fn get_ray(&self, i: i32, j: i32) -> Ray {
+        let pixel_center = self.pixel00_loc
+            + (i * self.pixel_delta_u)
+            + (j * self.pixel_delta_v);
+
+        let pixel_sample = pixel_center + self.pixel_sample_square();
+
+        let ray_origin = self.center;
+        let ray_direction = pixel_sample - ray_origin;
+
+        return Ray::from(ray_origin, ray_direction);
+    }
+
+    fn pixel_sample_square(&self) -> Vec3 {
+        //Returns a random point in thesquare surrounding a pixel at the origin
+        let px = -0.5 + crate::utils::random_double();
+        let py = -0.5 + crate::utils::random_double();
+        return (px * self.pixel_delta_u) + (py * self.pixel_delta_v);
+    }
     fn ray_color(&self, ray: &Ray, world: &HittableList) -> vec3::Color {
         let mut rec = HitRecord::new();
 
         if world.hit(ray, hittable::Interval::from(0.0, INFINITY), &mut rec) {
-            return 0.5 * (rec.normal + Color::from(1.0, 1.0, 1.0));
+            let direction = vec3::random_on_hemisphere(&rec.normal);
+            return 0.5 * self.ray_color(&Ray::from(rec.p, direction), &world);
         }
         let unit_direction = vec3::unit_vector(ray.direction());
         let a = 0.5 * (unit_direction.y() + 1.0);
