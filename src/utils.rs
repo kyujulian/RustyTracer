@@ -12,7 +12,7 @@ pub fn random_double() -> f64 {
     return rng.gen();
 }
 
-pub fn random_double_range(min: f64, max: f64) -> f64 {
+pub fn random_double_in(min: f64, max: f64) -> f64 {
     //Returns a random real in [min,max).
 
     let mut rng = rand::thread_rng();
